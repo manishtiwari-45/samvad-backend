@@ -10,16 +10,12 @@ from app.schemas import ClubCreate, ClubPublic, ClubWithMembersAndEvents, UserPu
 router = APIRouter()
 
 # --- CRUD for Clubs ---
-
 @router.post("/", response_model=ClubPublic, status_code=status.HTTP_201_CREATED)
 def create_club(
     club_in: ClubCreate,
     db: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """
-    Create a new club. The user creating the club automatically becomes its admin.
-    """
     if current_user.role == UserRole.student:
         current_user.role = UserRole.club_admin
         db.add(current_user)
@@ -38,26 +34,60 @@ def create_club(
 
 @router.get("/", response_model=List[ClubPublic])
 def get_all_clubs(db: Annotated[Session, Depends(get_session)]):
-    """Get a list of all clubs."""
     return db.exec(select(Club)).all()
 
 @router.get("/{club_id}", response_model=ClubWithMembersAndEvents)
 def get_club_by_id(club_id: int, db: Annotated[Session, Depends(get_session)]):
-    """Get detailed information about a single club, including members and events."""
     club = db.get(Club, club_id)
     if not club:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Club not found")
     return club
 
-# --- Club Membership Management ---
+@router.put("/clubs/{club_id}", response_model=ClubPublic)
+def update_existing_club(
+    club_id: int, 
+    club_update: ClubCreate, 
+    db: Annotated[Session, Depends(get_session)], 
+    current_user: Annotated[User, Depends(get_current_user)]
+):
+    club = db.get(Club, club_id)
+    if not club:
+        raise HTTPException(status_code=404, detail="Club not found")
+    if club.admin_id != current_user.id and current_user.role != UserRole.super_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to update this club")
+    
+    club_data = club_update.model_dump(exclude_unset=True)
+    for key, value in club_data.items():
+        setattr(club, key, value)
+    
+    db.add(club)
+    db.commit()
+    db.refresh(club)
+    return club
 
+@router.delete("/clubs/{club_id}", response_model=dict)
+def delete_existing_club(
+    club_id: int, 
+    db: Annotated[Session, Depends(get_session)], 
+    current_user: Annotated[User, Depends(get_current_user)]
+):
+    club = db.get(Club, club_id)
+    if not club:
+        raise HTTPException(status_code=404, detail="Club not found")
+    if club.admin_id != current_user.id and current_user.role != UserRole.super_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this club")
+    
+    db.delete(club)
+    db.commit()
+    return {"message": "Club deleted successfully"}
+
+# --- Club Membership Management ---
 @router.post("/{club_id}/join", response_model=UserPublic)
 def join_club(
     club_id: int,
     db: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """Allows the current user to join a club."""
     club = db.get(Club, club_id)
     if not club:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Club not found")
@@ -75,7 +105,6 @@ def join_club(
     return current_user
 
 # --- Club Announcements ---
-
 @router.post("/{club_id}/announcements", response_model=AnnouncementPublic, status_code=status.HTTP_201_CREATED)
 def create_announcement_for_club(
     club_id: int,
@@ -83,7 +112,6 @@ def create_announcement_for_club(
     db: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """Post a new announcement for a club. Only the club admin can do this."""
     club = db.get(Club, club_id)
     if not club:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Club not found")
@@ -96,3 +124,12 @@ def create_announcement_for_club(
     db.commit()
     db.refresh(announcement)
     return announcement
+
+# NEW ENDPOINT
+@router.get("/{club_id}/announcements", response_model=List[AnnouncementPublic])
+def get_club_announcements(club_id: int, db: Annotated[Session, Depends(get_session)]):
+    club = db.get(Club, club_id)
+    if not club:
+        raise HTTPException(status_code=404, detail="Club not found")
+    # Order by most recent
+    return sorted(club.announcements, key=lambda x: x.timestamp, reverse=True)
