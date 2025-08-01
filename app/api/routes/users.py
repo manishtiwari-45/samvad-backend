@@ -27,6 +27,7 @@ router = APIRouter()
 @router.post("/signup", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(user_in: UserCreate, db: Annotated[Session, Depends(get_session)]):
     existing_user = db.exec(select(User).where(User.email == user_in.email)).first()
+    print(f"--- SIGNUP: Received role from frontend: {user_in.role} ---")
     if existing_user:
         raise HTTPException(status_code=400, detail="User with this email already exists")
     
@@ -53,6 +54,8 @@ def login_for_access_token(
 
 @router.get("/me", response_model=UserPublicWithDetails)
 def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
+    print(f"--- /me ENDPOINT: Sending role to frontend: {current_user.role} ---")
+
     return current_user
 
 @router.get("/me/administered-clubs", response_model=List[ClubPublic])
