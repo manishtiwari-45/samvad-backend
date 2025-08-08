@@ -69,5 +69,11 @@ class ClubWithMembersAndEvents(ClubPublic):
     members: List[UserPublic] = []
     events: List[EventPublic] = []
 
+class DashboardStats(BaseModel):
+    total_users: int
+    active_clubs: int
+    total_events: int
+    pending_clubs: int = 0 
+
 # Update any forward references if needed (though not strictly necessary here)
 ClubWithMembersAndEvents.model_rebuild()

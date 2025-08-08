@@ -16,14 +16,10 @@ def create_club(
     db: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    """
-    Create a new club. Only 'club_admin' or 'super_admin' can create clubs.
-    """
-    # FIX: Only allow admins to create clubs. No automatic role changes.
     if current_user.role not in [UserRole.club_admin, UserRole.super_admin]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only Club Admins or Super Admins can create clubs."
+            detail="Only Admins can create clubs."
         )
 
     club = Club.model_validate(club_in, update={"admin_id": current_user.id})
@@ -31,7 +27,6 @@ def create_club(
     db.commit()
     db.refresh(club)
     
-    # Add the admin as a member of their own new club
     membership = Membership(user_id=current_user.id, club_id=club.id)
     db.add(membership)
     db.commit()
@@ -77,7 +72,6 @@ def delete_existing_club(
     db.commit()
     return {"message": "Club deleted successfully"}
 
-# ... The rest of the file (get_all_clubs, get_club_by_id, join_club, announcements) remains the same ...
 @router.get("/", response_model=List[ClubPublic])
 def get_all_clubs(db: Annotated[Session, Depends(get_session)]):
     return db.exec(select(Club)).all()
@@ -89,6 +83,7 @@ def get_club_by_id(club_id: int, db: Annotated[Session, Depends(get_session)]):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Club not found")
     return club
 
+# --- Club Membership Management ---
 @router.post("/{club_id}/join", response_model=UserPublic)
 def join_club(
     club_id: int,
@@ -98,19 +93,15 @@ def join_club(
     club = db.get(Club, club_id)
     if not club:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Club not found")
-
-    existing_membership = db.exec(
-        select(Membership).where(Membership.user_id == current_user.id, Membership.club_id == club_id)
-    ).first()
+    existing_membership = db.exec(select(Membership).where(Membership.user_id == current_user.id, Membership.club_id == club_id)).first()
     if existing_membership:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is already a member of this club")
-
     membership = Membership(user_id=current_user.id, club_id=club_id)
     db.add(membership)
     db.commit()
-    
     return current_user
 
+# --- Club Announcements ---
 @router.post("/{club_id}/announcements", response_model=AnnouncementPublic, status_code=status.HTTP_201_CREATED)
 def create_announcement_for_club(
     club_id: int,
@@ -121,10 +112,8 @@ def create_announcement_for_club(
     club = db.get(Club, club_id)
     if not club:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Club not found")
-
     if club.admin_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the club admin can post announcements")
-
     announcement = Announcement.model_validate(announcement_in, update={"club_id": club_id})
     db.add(announcement)
     db.commit()

@@ -1,6 +1,8 @@
 from typing import List, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
+from app.db.models import Club, Event 
+from app.schemas import DashboardStats
 
 from app.db.database import get_session
 from app.db.models import User, UserRole
@@ -8,6 +10,25 @@ from app.api.deps import get_super_admin
 from app.schemas import UserPublic
 
 router = APIRouter()
+
+# Naya endpoint
+@router.get("/stats", response_model=DashboardStats)
+def get_dashboard_stats(
+    db: Annotated[Session, Depends(get_session)],
+    super_admin: Annotated[User, Depends(get_super_admin)],
+):
+    """
+    Super Admin dashboard ke liye stats fetch karein.
+    """
+    total_users = db.exec(select(User)).all()
+    active_clubs = db.exec(select(Club)).all()
+    total_events = db.exec(select(Event)).all()
+
+    return DashboardStats(
+        total_users=len(total_users),
+        active_clubs=len(active_clubs),
+        total_events=len(total_events),
+    )
 
 @router.get("/users", response_model=List[UserPublic])
 def get_all_users(
@@ -61,3 +82,9 @@ def delete_user(
     db.delete(user_to_delete)
     db.commit()
     return {"message": f"User with ID {user_id} deleted successfully."}
+
+
+
+
+
+
