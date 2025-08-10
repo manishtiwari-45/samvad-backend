@@ -4,4 +4,10 @@ sqlmodel
 passlib[bcrypt]
 python-jose[cryptography]
 python-dotenv
-scikit-learn 
+scikit-learn
+cloudinary
+python-multipart
+opencv-python
+dlib
+face-recognition
+websockets

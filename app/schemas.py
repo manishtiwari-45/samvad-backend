@@ -75,5 +75,9 @@ class DashboardStats(BaseModel):
     total_events: int
     pending_clubs: int = 0 
 
+class ClubAdminView(ClubPublic):
+    member_count: int
+    event_count: int
+
 # Update any forward references if needed (though not strictly necessary here)
 ClubWithMembersAndEvents.model_rebuild()
