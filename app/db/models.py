@@ -28,18 +28,23 @@ class User(SQLModel, table=True):
     role: UserRole = Field(default=UserRole.student)
     face_encoding: Optional[str] = Field(default=None, max_length=4096)
     
+    # --- WHATSAPP NUMBER AB UNIQUE NAHI RAHA ---
+    whatsapp_number: Optional[str] = Field(default=None, index=True) # unique=True yahan se hata diya gaya hai
+    whatsapp_verified: bool = Field(default=False)
+    whatsapp_consent: bool = Field(default=False)
+    
     # Relationships
     clubs: List["Club"] = Relationship(back_populates="members", link_model=Membership)
     events_attending: List["Event"] = Relationship(back_populates="attendees", link_model=EventRegistration)
     administered_clubs: List["Club"] = Relationship(back_populates="admin")
+
+# ... (Baaki poori file waise hi rahegi) ...
 
 class Club(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(unique=True, index=True)
     description: str
     admin_id: int = Field(foreign_key="user.id")
-    
-    # Relationships
     admin: User = Relationship(back_populates="administered_clubs")
     members: List[User] = Relationship(back_populates="clubs", link_model=Membership)
     events: List["Event"] = Relationship(back_populates="club")
@@ -52,8 +57,6 @@ class Event(SQLModel, table=True):
     date: datetime
     location: str
     club_id: int = Field(foreign_key="club.id")
-    
-    # Relationships
     club: Club = Relationship(back_populates="events")
     attendees: List[User] = Relationship(back_populates="events_attending", link_model=EventRegistration)
     photos: List["EventPhoto"] = Relationship(back_populates="event") 
@@ -74,12 +77,9 @@ class EventPhoto(SQLModel, table=True):
     event_id: int = Field(foreign_key="event.id")
     event: Event = Relationship(back_populates="photos")
 
-# --- ATTENDANCE TABLE KO UPDATE KIYA GAYA HAI ---
 class AttendanceRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    notes: Optional[str] = Field(default=None) # Naya notes field
-    
+    notes: Optional[str] = Field(default=None)
     user_id: int = Field(foreign_key="user.id")
-    # event_id ab zaroori nahi hai
     event_id: Optional[int] = Field(default=None, foreign_key="event.id")

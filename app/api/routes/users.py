@@ -24,16 +24,29 @@ class UserCreate(BaseModel):
     password: str
     full_name: str
     role: UserRole = UserRole.student
+    whatsapp_number: str
+    whatsapp_consent: bool
 
 # --- Router ---
 router = APIRouter()
 
 @router.post("/signup", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(user_in: UserCreate, db: Annotated[Session, Depends(get_session)]):
-    existing_user = db.exec(select(User).where(User.email == user_in.email)).first()
-    if existing_user:
+    if not user_in.email.endswith("@sitare.org"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email domain. Only @sitare.org emails are allowed."
+        )
+
+    existing_user_email = db.exec(select(User).where(User.email == user_in.email)).first()
+    if existing_user_email:
         raise HTTPException(status_code=400, detail="User with this email already exists")
     
+    # --- WHATSAPP NUMBER CHECK WALA CODE YAHAN SE HATA DIYA GAYA HAI ---
+    # existing_user_whatsapp = db.exec(select(User).where(User.whatsapp_number == user_in.whatsapp_number)).first()
+    # if existing_user_whatsapp:
+    #     raise HTTPException(status_code=400, detail="This WhatsApp number is already registered.")
+
     user = User.model_validate(user_in, update={"hashed_password": get_password_hash(user_in.password)})
     db.add(user)
     db.commit()
@@ -45,6 +58,12 @@ def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[Session, Depends(get_session)],
 ):
+    if not form_data.username.endswith("@sitare.org"):
+         raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email domain. Only @sitare.org users can log in."
+        )
+
     user = db.exec(select(User).where(User.email == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -73,39 +92,28 @@ def get_my_administered_clubs(
         clubs_with_counts.append(club_view)
     return clubs_with_counts
 
-# --- NAYA ENDPOINT: FACE ENROLLMENT KE LIYE ---
 @router.post("/me/enroll-face", response_model=UserPublic)
 async def enroll_user_face(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_session)],
     file: UploadFile = File(...),
 ):
-    """
-    Enrolls the current user's face by processing an uploaded image.
-    """
-    # 1. Image ko memory mein read karein
     contents = await file.read()
-    
     try:
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         image_np = np.array(image)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid image file.")
 
-    # 2. Face locations aur encodings find karein
     face_locations = face_recognition.face_locations(image_np)
     if not face_locations:
         raise HTTPException(status_code=400, detail="No face found in the image.")
     if len(face_locations) > 1:
         raise HTTPException(status_code=400, detail="Multiple faces found. Please upload an image with only one face.")
     
-    # 3. Pehla (aur eklauta) face encoding get karein
     face_encoding = face_recognition.face_encodings(image_np, known_face_locations=face_locations)[0]
-
-    # 4. Numpy array ko ek string mein convert karein taaki database mein save ho sake
     encoding_str = ",".join(map(str, face_encoding))
-
-    # 5. User model mein save karein
+    
     user_to_update = db.get(User, current_user.id)
     if not user_to_update:
         raise HTTPException(status_code=404, detail="User not found")
@@ -114,5 +122,4 @@ async def enroll_user_face(
     db.add(user_to_update)
     db.commit()
     db.refresh(user_to_update)
-
     return user_to_update
