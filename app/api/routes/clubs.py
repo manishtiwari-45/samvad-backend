@@ -1,7 +1,10 @@
-from typing import List, Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Annotated, Optional
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Form, File, UploadFile
 from sqlmodel import Session, select
 from twilio.rest import Client
+import cloudinary
+import cloudinary.uploader
 
 from app.core.config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
 from app.db.database import get_session
@@ -11,7 +14,7 @@ from app.schemas import ClubCreate, ClubPublic, ClubWithMembersAndEvents, UserPu
 
 router = APIRouter()
 
-# Twilio Client ko initialize karein
+# Initialize Twilio Client
 if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
     twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 else:
@@ -20,22 +23,66 @@ else:
 # --- CRUD for Clubs ---
 @router.post("/", response_model=ClubPublic, status_code=status.HTTP_201_CREATED)
 def create_club(
-    club_in: ClubCreate,
     db: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
+    # Required form fields
+    name: str = Form(...),
+    description: str = Form(...),
+    file: UploadFile = File(...),
+    # New optional form fields
+    category: str = Form("General"),
+    contact_email: Optional[str] = Form(None),
+    website_url: Optional[str] = Form(None),
+    founded_date: Optional[str] = Form(None, description="Date in YYYY-MM-DD format"),
+    coordinator_id: Optional[int] = Form(None),
+    sub_coordinator_id: Optional[int] = Form(None)
 ):
-    if current_user.role not in [UserRole.club_admin, UserRole.super_admin]:
-        raise HTTPException(status_code=403, detail="Only Admins can create clubs.")
-    club = Club.model_validate(club_in, update={"admin_id": current_user.id})
+    """
+    Create a new club with a cover photo and additional details.
+    """
+    if current_user.role != UserRole.super_admin:
+        raise HTTPException(status_code=403, detail="Only Super Admins can create clubs.")
+
+    # Step 1: Upload cover photo to Cloudinary
+    try:
+        upload_result = cloudinary.uploader.upload(file.file, folder="stellarhub_clubs")
+        image_url = upload_result.get("secure_url")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image upload failed: {e}")
+
+    # Step 2: Prepare all club data
+    founded_datetime = datetime.fromisoformat(founded_date) if founded_date else None
+    
+    new_club_data = {
+        "name": name,
+        "description": description,
+        "cover_image_url": image_url,
+        "admin_id": current_user.id,
+        "category": category,
+        "contact_email": contact_email,
+        "website_url": website_url,
+        "founded_date": founded_datetime,
+        "coordinator_id": coordinator_id,
+        "sub_coordinator_id": sub_coordinator_id
+    }
+    
+    # Filter out None values so model defaults are used
+    club_data_to_validate = {k: v for k, v in new_club_data.items() if v is not None}
+    club = Club.model_validate(club_data_to_validate)
+    
     db.add(club)
     db.commit()
     db.refresh(club)
+    
+    # Also make the admin a member of the club
     membership = Membership(user_id=current_user.id, club_id=club.id)
     db.add(membership)
     db.commit()
+    
     db.refresh(club)
     return club
 
+# ... (THE REST OF YOUR FUNCTIONS LIKE GET, UPDATE, DELETE, ETC. REMAIN THE SAME) ...
 @router.get("/", response_model=List[ClubPublic])
 def get_all_clubs(db: Annotated[Session, Depends(get_session)]):
     return db.exec(select(Club)).all()
@@ -50,7 +97,7 @@ def get_club_by_id(club_id: int, db: Annotated[Session, Depends(get_session)]):
 @router.put("/{club_id}", response_model=ClubPublic)
 def update_existing_club(
     club_id: int, 
-    club_update: ClubCreate, 
+    club_update: ClubCreate,
     db: Annotated[Session, Depends(get_session)], 
     current_user: Annotated[User, Depends(get_current_user)]
 ):
@@ -59,9 +106,11 @@ def update_existing_club(
         raise HTTPException(status_code=404, detail="Club not found")
     if club.admin_id != current_user.id and current_user.role != UserRole.super_admin:
         raise HTTPException(status_code=403, detail="Not authorized to update this club")
+    
     club_data = club_update.model_dump(exclude_unset=True)
     for key, value in club_data.items():
         setattr(club, key, value)
+    
     db.add(club)
     db.commit()
     db.refresh(club)
@@ -78,11 +127,11 @@ def delete_existing_club(
         raise HTTPException(status_code=404, detail="Club not found")
     if club.admin_id != current_user.id and current_user.role != UserRole.super_admin:
         raise HTTPException(status_code=403, detail="Not authorized to delete this club")
+    
     db.delete(club)
     db.commit()
     return {"message": "Club deleted successfully"}
 
-# --- Club Membership Management ---
 @router.post("/{club_id}/join", response_model=UserPublic)
 def join_club(
     club_id: int, db: Annotated[Session, Depends(get_session)],
@@ -99,7 +148,6 @@ def join_club(
     db.commit()
     return current_user
 
-# --- Club Announcements ---
 @router.post("/{club_id}/announcements", response_model=AnnouncementPublic, status_code=status.HTTP_201_CREATED)
 def create_announcement_for_club(
     club_id: int, announcement_in: AnnouncementCreate, db: Annotated[Session, Depends(get_session)],
@@ -116,12 +164,9 @@ def create_announcement_for_club(
     db.commit()
     db.refresh(announcement)
     
-    # WhatsApp Notification Logic
     if twilio_client:
         try:
-            users_to_notify = db.exec(
-                select(User).where(User.whatsapp_verified == True, User.whatsapp_consent == True)
-            ).all()
+            users_to_notify = db.exec(select(User).where(User.whatsapp_verified == True, User.whatsapp_consent == True)).all()
             message_body = (f"📢 New Announcement from *{club.name}*!\n\n"
                             f"*{announcement.title}*\n\n{announcement.content}")
             for user in users_to_notify:

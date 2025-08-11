@@ -73,11 +73,19 @@ class DashboardStats(BaseModel):
     total_users: int
     active_clubs: int
     total_events: int
-    pending_clubs: int = 0 
+    pending_clubs: int = 0
 
 class ClubAdminView(ClubPublic):
     member_count: int
     event_count: int
 
-# Update any forward references if needed (though not strictly necessary here)
+# --- Gallery Schemas (NEW) ---
+class GalleryPhotoPublic(BaseModel):
+    id: int
+    image_url: str
+    caption: Optional[str]
+    timestamp: datetime
+    uploader: UserPublic # Nest the uploader's public info
+
+# Update any forward references if needed
 ClubWithMembersAndEvents.model_rebuild()
