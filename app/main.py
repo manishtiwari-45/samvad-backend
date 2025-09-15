@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import create_db_and_tables
-from app.api.routes import users, clubs, events, admin, photos, attendance, verification # verification import karein
+from app.api.routes import users, clubs, events, admin, photos, attendance, verification, ai # verification import karein
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,8 +39,10 @@ app.include_router(events.router, prefix="/events", tags=["Events"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(photos.router, prefix="/photos", tags=["Photos"])
 app.include_router(attendance.router, prefix="/attendance", tags=["Attendance"])
-app.include_router(verification.router, prefix="/verification", tags=["Verification"]) # Naya route add karein
+app.include_router(verification.router, prefix="/verification", tags=["Verification"]) 
+app.include_router(ai.router, prefix="/ai", tags=["AI Services"])# Naya route add karein
 
 @app.get("/", tags=["Root"])
 def read_root():
     return {"message": "Welcome to the CampusConnect API! 🚀"}
+

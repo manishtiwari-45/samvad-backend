@@ -20,6 +20,9 @@ class EventRegistration(SQLModel, table=True):
 
 # --- Main Models ---
 
+# NOTE: The forward reference "class Club;" has been removed as it was causing a SyntaxError.
+# Type hints using strings like List["Club"] handle this correctly.
+
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
@@ -34,9 +37,11 @@ class User(SQLModel, table=True):
     # Relationships
     clubs: List["Club"] = Relationship(back_populates="members", link_model=Membership)
     events_attending: List["Event"] = Relationship(back_populates="attendees", link_model=EventRegistration)
-    administered_clubs: List["Club"] = Relationship(back_populates="admin")
-    uploaded_gallery_photos: List["GalleryPhoto"] = Relationship(back_populates="uploader")
-
+    
+    administered_clubs: List["Club"] = Relationship(
+        back_populates="admin",
+        sa_relationship_kwargs={'foreign_keys': '[Club.admin_id]'}
+    )
     coordinated_clubs: List["Club"] = Relationship(
         back_populates="coordinator",
         sa_relationship_kwargs={'foreign_keys': '[Club.coordinator_id]'}
@@ -45,43 +50,44 @@ class User(SQLModel, table=True):
         back_populates="sub_coordinator",
         sa_relationship_kwargs={'foreign_keys': '[Club.sub_coordinator_id]'}
     )
+    uploaded_gallery_photos: List["GalleryPhoto"] = Relationship(back_populates="uploader")
 
-# In app/db/models.py
 
 class Club(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(unique=True, index=True)
     description: str
     
-    # --- EXISTING/MODIFIED FIELDS ---
     admin_id: int = Field(foreign_key="user.id")
     cover_image_url: Optional[str] = Field(default=None)
-
-    # --- NEW FIELDS ---
     category: Optional[str] = Field(default="General", index=True)
     contact_email: Optional[str] = Field(default=None)
     website_url: Optional[str] = Field(default=None)
     founded_date: Optional[datetime] = Field(default=None)
     
-    # NEW: Link to users for coordinator roles
     coordinator_id: Optional[int] = Field(default=None, foreign_key="user.id")
     sub_coordinator_id: Optional[int] = Field(default=None, foreign_key="user.id")
     
-    # --- RELATIONSHIPS ---
-    admin: User = Relationship(back_populates="administered_clubs")
-    members: List[User] = Relationship(back_populates="clubs", link_model=Membership)
-    events: List["Event"] = Relationship(back_populates="club")
-    announcements: List["Announcement"] = Relationship(back_populates="club")
-
-    # NEW: Define relationships for coordinators
-    coordinator: Optional[User] = Relationship(
+    # Relationships
+    admin: "User" = Relationship(
+        back_populates="administered_clubs",
+        sa_relationship_kwargs={'foreign_keys': '[Club.admin_id]'}
+    )
+    coordinator: Optional["User"] = Relationship(
         back_populates="coordinated_clubs",
         sa_relationship_kwargs={'foreign_keys': '[Club.coordinator_id]'}
     )
-    sub_coordinator: Optional[User] = Relationship(
+    sub_coordinator: Optional["User"] = Relationship(
         back_populates="sub_coordinated_clubs",
         sa_relationship_kwargs={'foreign_keys': '[Club.sub_coordinator_id]'}
     )
+    
+    members: List["User"] = Relationship(back_populates="clubs", link_model=Membership)
+    events: List["Event"] = Relationship(back_populates="club")
+    announcements: List["Announcement"] = Relationship(back_populates="club")
+
+
+# ... (The rest of your models: Event, Announcement, etc. remain the same) ...
 
 class Event(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -91,7 +97,6 @@ class Event(SQLModel, table=True):
     location: str
     club_id: int = Field(foreign_key="club.id")
     
-    # Relationships
     club: Club = Relationship(back_populates="events")
     attendees: List[User] = Relationship(back_populates="events_attending", link_model=EventRegistration)
     photos: List["EventPhoto"] = Relationship(back_populates="event") 
@@ -119,15 +124,11 @@ class AttendanceRecord(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id")
     event_id: Optional[int] = Field(default=None, foreign_key="event.id")
 
-# Add this new class at the end of app/db/models.py
-
 class GalleryPhoto(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    image_url: str = Field(..., description="URL of the photo hosted on Cloudinary")
-    public_id: str = Field(..., description="Public ID from Cloudinary for managing the asset")
+    image_url: str
+    public_id: str
     caption: Optional[str] = Field(default=None)
     uploaded_by_id: int = Field(foreign_key="user.id")
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
-
-    # This creates a link to the User model so we can see who uploaded the photo
-    uploader: "User" = Relationship()
+    uploader: "User" = Relationship(back_populates="uploaded_gallery_photos")
