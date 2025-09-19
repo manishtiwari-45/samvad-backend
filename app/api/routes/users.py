@@ -7,6 +7,7 @@ import face_recognition
 import numpy as np
 import io
 from PIL import Image
+import requests
 
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.db.database import get_session
@@ -27,17 +28,17 @@ class UserCreate(BaseModel):
     whatsapp_number: str
     whatsapp_consent: bool
 
+class GoogleLoginRequest(BaseModel):
+    token: str
+    role: UserRole = UserRole.student  # Default to student if not specified
+
 # --- Router ---
 router = APIRouter()
 
 @router.post("/signup", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def create_user(user_in: UserCreate, db: Annotated[Session, Depends(get_session)]):
-    if not user_in.email.endswith("@sitare.org"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email domain. Only @sitare.org emails are allowed."
-        )
-
+    # Email domain restriction removed - now accepts all email domains
+    
     existing_user_email = db.exec(select(User).where(User.email == user_in.email)).first()
     if existing_user_email:
         raise HTTPException(status_code=400, detail="User with this email already exists")
@@ -58,12 +59,8 @@ def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[Session, Depends(get_session)],
 ):
-    if not form_data.username.endswith("@sitare.org"):
-         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email domain. Only @sitare.org users can log in."
-        )
-
+    # Email domain restriction removed - now accepts all email domains
+    
     user = db.exec(select(User).where(User.email == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -73,6 +70,57 @@ def login_for_access_token(
         )
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/google-login", response_model=Token)
+def google_login(request: GoogleLoginRequest, db: Annotated[Session, Depends(get_session)]):
+    try:
+        # Verify the Google token by calling Google's API
+        response = requests.get(
+            f"https://www.googleapis.com/oauth2/v1/userinfo?access_token={request.token}"
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Google token"
+            )
+        
+        google_user_data = response.json()
+        email = google_user_data.get("email")
+        name = google_user_data.get("name")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not retrieve email from Google"
+            )
+        
+        # Email domain restriction removed - now accepts all email domains
+        
+        # Check if user exists, if not create them
+        user = db.exec(select(User).where(User.email == email)).first()
+        if not user:
+            # Create new user with Google data and specified role
+            user = User(
+                email=email,
+                full_name=name or email.split("@")[0],
+                hashed_password=get_password_hash("google_oauth_user"),  # Placeholder password
+                role=request.role,  # Use the role from the request
+                whatsapp_number="",  # Empty for Google users
+                whatsapp_consent=False
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+        
+    except requests.RequestException:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify Google token"
+        )
 
 @router.get("/me", response_model=UserPublicWithDetails)
 def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):

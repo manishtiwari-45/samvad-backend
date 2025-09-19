@@ -8,5 +8,6 @@ __pycache__/
 # Environment variables
 .env
 
-# Database file
+# Database files
 campusconnect.db
+stellarhub.db
