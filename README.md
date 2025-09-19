@@ -1,2 +1,2 @@
-# campusconnect-backend
-The FastAPI backend for the CampusConnect application.
+# starhive-backend
+The FastAPI backend for the StarHive application.

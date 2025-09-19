@@ -53,7 +53,7 @@ def send_otp(payload: PhonePayload, db: Annotated[Session, Depends(get_session)]
     try:
         message = twilio_client.messages.create(
             from_=TWILIO_WHATSAPP_NUMBER,
-            body=f"Your StellarHub verification code is: {otp}",
+            body=f"Your StarHive verification code is: {otp}",
             to=f"whatsapp:{phone_number_e164}"
         )
         return {"message": "OTP sent successfully."}

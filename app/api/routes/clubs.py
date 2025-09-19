@@ -45,7 +45,7 @@ def create_club(
 
     # Step 1: Upload cover photo to Cloudinary
     try:
-        upload_result = cloudinary.uploader.upload(file.file, folder="stellarhub_clubs")
+        upload_result = cloudinary.uploader.upload(file.file, folder="starhive_clubs")
         image_url = upload_result.get("secure_url")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload failed: {e}")

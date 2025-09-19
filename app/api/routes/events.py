@@ -129,6 +129,13 @@ def create_event(
 def get_all_events(db: Annotated[Session, Depends(get_session)]):
     return db.exec(select(Event)).all()
 
+@router.get("/{event_id}", response_model=EventPublic)
+def get_event_by_id(event_id: int, db: Annotated[Session, Depends(get_session)]):
+    event = db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return event
+
 @router.post("/{event_id}/register", response_model=UserPublic)
 def register_for_event(
     event_id: int,
