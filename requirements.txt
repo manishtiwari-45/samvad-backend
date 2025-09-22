@@ -166,7 +166,7 @@ uvicorn==0.34.0
 virtualenv==20.29.3
 watchfiles==1.0.4
 wcwidth==0.2.13
-webdriver-manager==4.0.2
+# webdriver-manager==4.0.2  # Removed for faster deployment - selenium related
 webencodings==0.5.1
 websocket-client==1.8.0
 websockets==15.0
