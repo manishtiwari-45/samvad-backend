@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from pydantic import BaseModel
-import face_recognition
-import numpy as np
+# import face_recognition  # Temporarily disabled for deployment
+# import numpy as np  # Temporarily disabled for deployment
 import io
 from PIL import Image
 import requests
@@ -179,40 +179,41 @@ def get_my_administered_clubs(
         clubs_with_counts.append(club_view)
     return clubs_with_counts
 
-@router.post("/me/enroll-face", response_model=UserPublic)
-async def enroll_user_face(
-    current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_session)],
-    file: UploadFile = File(...),
-):
-    try:
-        # Validate file first
-        SecureValidator.validate_file_upload(file)
-        
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
-        image_np = np.array(image)
-    except HTTPException:
-        # Re-raise validation errors
-        raise
-    except Exception as e:
-        raise SecureErrorHandler.handle_validation_error("image", "Invalid image file format")
+# Face enrollment temporarily disabled for deployment
+# @router.post("/me/enroll-face", response_model=UserPublic)
+# async def enroll_user_face(
+#     current_user: Annotated[User, Depends(get_current_user)],
+#     db: Annotated[Session, Depends(get_session)],
+#     file: UploadFile = File(...),
+# ):
+#     try:
+#         # Validate file first
+#         SecureValidator.validate_file_upload(file)
+#         
+#         contents = await file.read()
+#         image = Image.open(io.BytesIO(contents)).convert("RGB")
+#         image_np = np.array(image)
+#     except HTTPException:
+#         # Re-raise validation errors
+#         raise
+#     except Exception as e:
+#         raise SecureErrorHandler.handle_validation_error("image", "Invalid image file format")
 
-    face_locations = face_recognition.face_locations(image_np)
-    if not face_locations:
-        raise HTTPException(status_code=400, detail="No face found in the image.")
-    if len(face_locations) > 1:
-        raise HTTPException(status_code=400, detail="Multiple faces found. Please upload an image with only one face.")
+#     face_locations = face_recognition.face_locations(image_np)
+#     if not face_locations:
+#         raise HTTPException(status_code=400, detail="No face found in the image.")
+#     if len(face_locations) > 1:
+#         raise HTTPException(status_code=400, detail="Multiple faces found. Please upload an image with only one face.")
     
-    face_encoding = face_recognition.face_encodings(image_np, known_face_locations=face_locations)[0]
-    encoding_str = ",".join(map(str, face_encoding))
+#     face_encoding = face_recognition.face_encodings(image_np, known_face_locations=face_locations)[0]
+#     encoding_str = ",".join(map(str, face_encoding))
     
-    user_to_update = db.get(User, current_user.id)
-    if not user_to_update:
-        raise HTTPException(status_code=404, detail="User not found")
+#     user_to_update = db.get(User, current_user.id)
+#     if not user_to_update:
+#         raise HTTPException(status_code=404, detail="User not found")
         
-    user_to_update.face_encoding = encoding_str
-    db.add(user_to_update)
-    db.commit()
-    db.refresh(user_to_update)
-    return user_to_update
+#     user_to_update.face_encoding = encoding_str
+#     db.add(user_to_update)
+#     db.commit()
+#     db.refresh(user_to_update)
+#     return user_to_update

@@ -1,7 +1,7 @@
 from typing import List
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
+# import numpy as np  # Temporarily disabled for deployment
 
 from app.db.models import User, Event
 
