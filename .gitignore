@@ -1,14 +1,37 @@
 # Virtual Environment
 venv/
+env/
 
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # Environment variables
 .env
+.env.local
 
 # Database files
-campusconnect.db
-stellarhub.db
-samvad.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Development files
+start_backend.bat
+test_*.py
+*_test.py
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

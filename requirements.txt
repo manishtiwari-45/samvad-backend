@@ -8,7 +8,7 @@ anyio==4.8.0
 asttokens==2.4.1
 attrs==25.3.0
 bcrypt==3.2.0
-beautifulsoup4==4.13.3
+# beautifulsoup4==4.13.3  # Removed for faster deployment
 blinker==1.9.0
 cachetools==5.5.2
 certifi==2025.1.31
@@ -18,29 +18,29 @@ click==8.1.7
 cloudinary==1.44.1
 colorama==0.4.6
 comm==0.2.2
-contourpy==1.3.1
-cycler==0.12.1
-debugpy==1.8.7
+# contourpy==1.3.1  # Removed for faster deployment
+# cycler==0.12.1  # Removed for faster deployment
+# debugpy==1.8.7  # Removed for faster deployment
 decorator==5.1.1
 distlib==0.3.9
-dlib==20.0.0
+# dlib==20.0.0  # Removed for faster deployment - add back later for face recognition
 dnspython==2.7.0
 ecdsa==0.19.1
 email_validator==2.2.0
 et_xmlfile==2.0.0
-executing==2.1.0
-face-recognition==1.3.0
-face_recognition_models==0.3.0
+# executing==2.1.0  # Removed for faster deployment
+# face-recognition==1.3.0  # Removed for faster deployment
+# face_recognition_models==0.3.0  # Removed for faster deployment
 fastapi==0.115.8
 fastapi-cli==0.0.7
 feedparser==6.0.11
 filelock==3.18.0
 Flask==3.1.0
 Flask-Cors==5.0.0
-fonttools==4.55.8
+# fonttools==4.55.8  # Removed for faster deployment
 fpdf==1.7.2
 frozenlist==1.5.0
-fuzzywuzzy==0.18.0
+# fuzzywuzzy==0.18.0  # Removed for faster deployment
 google-api-core==2.25.1
 google-api-python-client==2.178.0
 google-auth==2.40.3
@@ -58,36 +58,36 @@ httptools==0.6.4
 httpx==0.28.1
 idna==3.10
 iniconfig==2.0.0
-ipykernel==6.29.5
-ipython==8.28.0
+# ipykernel==6.29.5  # Removed for faster deployment
+# ipython==8.28.0  # Removed for faster deployment
 itsdangerous==2.2.0
 jedi==0.19.1
 Jinja2==3.1.5
 joblib==1.4.2
 josh==0.1.0
 jsonpickle==4.0.5
-jupyter_client==8.6.3
-jupyter_core==5.7.2
-kiwisolver==1.4.8
-Levenshtein==0.27.1
-lxml==5.3.1
+# jupyter_client==8.6.3  # Removed for faster deployment
+# jupyter_core==5.7.2  # Removed for faster deployment
+# kiwisolver==1.4.8  # Removed for faster deployment
+# Levenshtein==0.27.1  # Removed for faster deployment
+# lxml==5.3.1  # Removed for faster deployment
 markdown-it-py==3.0.0
-markovify==0.9.4
+# markovify==0.9.4  # Removed for faster deployment
 MarkupSafe==3.0.2
-matplotlib==3.10.0
-matplotlib-inline==0.1.7
+# matplotlib==3.10.0  # Removed for faster deployment
+# matplotlib-inline==0.1.7  # Removed for faster deployment
 mdurl==0.1.2
 mpmath==1.3.0
 multidict==6.2.0
 nest-asyncio==1.6.0
-networkx==3.4.2
-nltk==3.9.1
-numpy==2.1.3
-opencv-python==4.12.0.88
+# networkx==3.4.2  # Removed for faster deployment
+# nltk==3.9.1  # Removed for faster deployment
+# numpy==2.1.3  # Removed for faster deployment
+# opencv-python==4.12.0.88  # Removed for faster deployment
 openpyxl==3.1.5
 outcome==1.3.0.post0
 packaging==25.0
-pandas==2.2.3
+# pandas==2.2.3  # Removed for faster deployment
 parso==0.8.4
 passlib==1.7.4
 pillow==11.0.0
@@ -112,29 +112,29 @@ PyJWT==2.10.1
 pyparsing==3.2.1
 pyproject-toml==0.1.0
 PySocks==1.7.1
-pytest==8.3.4
+# pytest==8.3.4  # Removed for faster deployment
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-jose==3.5.0
-python-Levenshtein==0.27.1
-python-louvain==0.16
+# python-Levenshtein==0.27.1  # Removed for faster deployment
+# python-louvain==0.16  # Removed for faster deployment
 python-multipart==0.0.20
 pytz==2024.2
-pyvis==0.3.2
+# pyvis==0.3.2  # Removed for faster deployment
 PyYAML==6.0.2
 pyzmq==26.2.0
 qr==0.6.0
 qrcode==8.0
-RapidFuzz==3.13.0
+# RapidFuzz==3.13.0  # Removed for faster deployment
 regex==2024.11.6
 requests==2.32.3
 rich==13.9.4
 rich-toolkit==0.13.2
 rsa==4.9.1
-scikit-learn==1.6.1
-scipy==1.14.1
-seaborn==0.13.2
-selenium==4.30.0
+# scikit-learn==1.6.1  # Removed for faster deployment
+# scipy==1.14.1  # Removed for faster deployment
+# seaborn==0.13.2  # Removed for faster deployment
+# selenium==4.30.0  # Removed for faster deployment
 setuptools==80.1.0
 sgmllib3k==1.0.0
 shellingham==1.5.4
