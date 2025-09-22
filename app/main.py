@@ -19,19 +19,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-origins = [
-    "http://localhost:5173",
-    "http://localhost:8000",
-    "https://your-actual-vercel-url.vercel.app",  # Replace with your actual Vercel URL
-    "https://*.vercel.app",  # Allow all Vercel preview deployments
-]
+origins = ["*"]  # Allow all origins temporarily
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,  # Must be False when using "*"
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Sabhi routers ko yahan include karein
