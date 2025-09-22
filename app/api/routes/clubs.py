@@ -7,9 +7,10 @@ import cloudinary
 import cloudinary.uploader
 
 from app.core.config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
+from app.core.secure_error_handler import SecureErrorHandler, SecureValidator
 from app.db.database import get_session
-from app.db.models import Club, User, UserRole, Membership, Announcement
-from app.api.deps import get_current_user
+from app.db.models import User, Club, UserRole, Announcement, Membership
+from app.api.deps import get_current_user, get_admin_or_super_admin, get_super_admin
 from app.schemas import ClubCreate, ClubPublic, ClubWithMembersAndEvents, UserPublic, AnnouncementCreate, AnnouncementPublic
 
 router = APIRouter()
@@ -24,7 +25,7 @@ else:
 @router.post("/", response_model=ClubPublic, status_code=status.HTTP_201_CREATED)
 def create_club(
     db: Annotated[Session, Depends(get_session)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_admin_or_super_admin)],
     # Required form fields
     name: str = Form(...),
     description: str = Form(...),
@@ -39,16 +40,21 @@ def create_club(
 ):
     """
     Create a new club with a cover photo and additional details.
+    Only Admins and SuperAdmins can create clubs.
     """
-    if current_user.role != UserRole.super_admin:
-        raise HTTPException(status_code=403, detail="Only Super Admins can create clubs.")
 
-    # Step 1: Upload cover photo to Cloudinary
+    # Step 1: Upload cover photo to Cloudinary securely
     try:
-        upload_result = cloudinary.uploader.upload(file.file, folder="starhive_clubs")
+        # Use secure upload function
+        from app.core.cloudinary_utils import upload_to_cloudinary
+        upload_result = upload_to_cloudinary(file, "samvad_clubs")
         image_url = upload_result.get("secure_url")
+    except HTTPException:
+        # Re-raise validation/upload errors
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image upload failed: {e}")
+        # Handle unexpected errors securely
+        raise SecureErrorHandler.handle_file_upload_error(e, "club cover image upload")
 
     # Step 2: Prepare all club data
     founded_datetime = datetime.fromisoformat(founded_date) if founded_date else None
@@ -156,8 +162,17 @@ def create_announcement_for_club(
     club = db.get(Club, club_id)
     if not club:
         raise HTTPException(status_code=404, detail="Club not found")
-    if club.admin_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the club admin can post announcements")
+    
+    # Allow club admin, coordinator, sub-coordinator, or super admin to post announcements
+    is_authorized = (
+        club.admin_id == current_user.id or
+        club.coordinator_id == current_user.id or
+        club.sub_coordinator_id == current_user.id or
+        current_user.role == UserRole.super_admin
+    )
+    
+    if not is_authorized:
+        raise HTTPException(status_code=403, detail="Only club admin, coordinators, or super admin can post announcements")
     
     announcement = Announcement.model_validate(announcement_in, update={"club_id": club_id})
     db.add(announcement)
@@ -177,9 +192,11 @@ def create_announcement_for_club(
                             to=f"whatsapp:{user.whatsapp_number}"
                         )
                     except Exception as e:
-                        print(f"Failed to send WhatsApp message to {user.whatsapp_number}: {e}")
+                        # Secure logging - don't expose phone numbers
+                        sanitized_phone = SecureValidator.sanitize_phone_number(user.whatsapp_number)
+                        SecureErrorHandler.log_error(e, f"WhatsApp send to {sanitized_phone}")
         except Exception as e:
-            print(f"Error during WhatsApp notification process: {e}")
+            SecureErrorHandler.log_error(e, "WhatsApp notification process")
 
     return announcement
 

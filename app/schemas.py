@@ -79,7 +79,13 @@ class ClubAdminView(ClubPublic):
     member_count: int
     event_count: int
 
-# --- Gallery Schemas (NEW) ---
+# --- Photo Schemas ---
+class EventPhotoPublic(BaseModel):
+    id: int
+    image_url: str
+    timestamp: datetime
+    event_id: int
+
 class GalleryPhotoPublic(BaseModel):
     id: int
     image_url: str

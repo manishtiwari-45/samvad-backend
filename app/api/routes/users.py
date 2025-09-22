@@ -10,10 +10,24 @@ from PIL import Image
 import requests
 
 from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.super_admin_config import is_super_admin_email, log_super_admin_attempt
+from app.core.secure_error_handler import SecureErrorHandler, SecureValidator
 from app.db.database import get_session
 from app.db.models import User, UserRole, Club
 from app.api.deps import get_current_user
-from app.schemas import UserPublic, ClubPublic, UserPublicWithDetails, ClubAdminView 
+from app.schemas import UserPublic, ClubPublic, UserPublicWithDetails, ClubAdminView
+
+def get_user_role_by_email(email: str) -> UserRole:
+    """
+    Determine user role based on email address.
+    Super Admin emails get super_admin role, everyone else gets student role.
+    """
+    is_super_admin = is_super_admin_email(email)
+    log_super_admin_attempt(email, is_super_admin)
+    
+    if is_super_admin:
+        return UserRole.super_admin
+    return UserRole.student 
 
 # --- Define Local Schemas ---
 class Token(BaseModel):
@@ -24,13 +38,13 @@ class UserCreate(BaseModel):
     email: str
     password: str
     full_name: str
-    role: UserRole = UserRole.student
     whatsapp_number: str
     whatsapp_consent: bool
+    # Role is removed - all new users are students by default
 
 class GoogleLoginRequest(BaseModel):
     token: str
-    role: UserRole = UserRole.student  # Default to student if not specified
+    # Role is removed - all new users are students by default
 
 # --- Router ---
 router = APIRouter()
@@ -48,7 +62,12 @@ def create_user(user_in: UserCreate, db: Annotated[Session, Depends(get_session)
     # if existing_user_whatsapp:
     #     raise HTTPException(status_code=400, detail="This WhatsApp number is already registered.")
 
-    user = User.model_validate(user_in, update={"hashed_password": get_password_hash(user_in.password)})
+    # Assign role based on email whitelist - Super Admin for whitelisted emails, Student for others
+    assigned_role = get_user_role_by_email(user_in.email)
+    user = User.model_validate(user_in, update={
+        "hashed_password": get_password_hash(user_in.password),
+        "role": assigned_role  # Super Admin for whitelisted emails, Student for others
+    })
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -99,12 +118,13 @@ def google_login(request: GoogleLoginRequest, db: Annotated[Session, Depends(get
         # Check if user exists, if not create them
         user = db.exec(select(User).where(User.email == email)).first()
         if not user:
-            # Create new user with Google data and specified role
+            # Create new user with Google data - role based on email whitelist
+            assigned_role = get_user_role_by_email(email)
             user = User(
                 email=email,
                 full_name=name or email.split("@")[0],
                 hashed_password=get_password_hash("google_oauth_user"),  # Placeholder password
-                role=request.role,  # Use the role from the request
+                role=assigned_role,  # Super Admin for whitelisted emails, Student for others
                 whatsapp_number="",  # Empty for Google users
                 whatsapp_consent=False
             )
@@ -146,12 +166,18 @@ async def enroll_user_face(
     db: Annotated[Session, Depends(get_session)],
     file: UploadFile = File(...),
 ):
-    contents = await file.read()
     try:
+        # Validate file first
+        SecureValidator.validate_file_upload(file)
+        
+        contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         image_np = np.array(image)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image file.")
+    except HTTPException:
+        # Re-raise validation errors
+        raise
+    except Exception as e:
+        raise SecureErrorHandler.handle_validation_error("image", "Invalid image file format")
 
     face_locations = face_recognition.face_locations(image_np)
     if not face_locations:

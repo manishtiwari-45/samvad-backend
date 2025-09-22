@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import create_db_and_tables
-from app.api.routes import users, clubs, events, admin, photos, attendance, verification
+from app.api.routes import users, clubs, events, admin, photos, attendance, verification, analytics, forums, role_requests
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,8 +13,8 @@ async def lifespan(app: FastAPI):
     print("Application shutdown.")
 
 app = FastAPI(
-    title="StarHive API",
-    description="Backend for the StarHive Campus Community Platform",
+    title="SAMVAD API",
+    description="Backend for the SAMVAD Campus Community Platform",
     version="0.5.0", # Version update for WhatsApp Feature
     lifespan=lifespan
 )
@@ -22,6 +22,8 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",
     "http://localhost:8000",
+    "https://your-actual-vercel-url.vercel.app",  # Replace with your actual Vercel URL
+    "https://*.vercel.app",  # Allow all Vercel preview deployments
 ]
 
 app.add_middleware(
@@ -40,8 +42,11 @@ app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(photos.router, prefix="/photos", tags=["Photos"])
 app.include_router(attendance.router, prefix="/attendance", tags=["Attendance"])
 app.include_router(verification.router, prefix="/verification", tags=["Verification"])
+app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
+app.include_router(forums.router, prefix="/forums", tags=["Forums"])
+app.include_router(role_requests.router, prefix="/role-requests", tags=["Role Requests"])
 
 @app.get("/", tags=["Root"])
 def read_root():
-    return {"message": "Welcome to the StarHive API! 🚀"}
+    return {"message": "Welcome to the SAMVAD API! 🚀"}
 

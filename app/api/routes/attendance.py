@@ -1,15 +1,18 @@
 from typing import List, Annotated
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, WebSocket, WebSocketDisconnect
 from sqlmodel import Session, select
+from pydantic import BaseModel
 import face_recognition
 import numpy as np
-import base64
 import io
 from PIL import Image
-from datetime import date, datetime, time
+import json
+import base64
 
+from app.core.secure_error_handler import SecureErrorHandler, SecureValidator
 from app.db.database import get_session
 from app.db.models import User, AttendanceRecord
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -87,7 +90,7 @@ async def attendance_websocket(websocket: WebSocket, notes: str = "General Atten
                 await websocket.send_json({"status": "NOT_FOUND"})
 
     except WebSocketDisconnect:
-        print("General Attendance WebSocket disconnected")
+        SecureErrorHandler.log_error(Exception("WebSocket disconnected"), "General Attendance WebSocket")
     except Exception as e:
-        print(f"Error in General Attendance WebSocket: {e}")
+        SecureErrorHandler.log_error(e, "General Attendance WebSocket")
         await websocket.close(code=1011, reason="An internal error occurred")

@@ -6,11 +6,12 @@ from datetime import datetime
 import cloudinary
 import cloudinary.uploader
 
+from app.core.cloudinary_utils import upload_to_cloudinary
+from app.core.secure_error_handler import SecureErrorHandler, SecureValidator
 from app.db.database import get_session
-# Make sure all necessary models and schemas are imported
-from app.db.models import EventPhoto, User, Event, UserRole, GalleryPhoto
-from app.schemas import GalleryPhotoPublic # Import the new schema
+from app.db.models import EventPhoto, GalleryPhoto, User, UserRole, Event
 from app.api.deps import get_current_user, get_super_admin
+from app.schemas import EventPhotoPublic, GalleryPhotoPublic # Import the new schema
 from app.core.cloudinary_utils import upload_to_cloudinary # Import the Cloudinary helper
 
 router = APIRouter()
@@ -56,7 +57,7 @@ def delete_photo(
     try:
         cloudinary.uploader.destroy(photo_to_delete.public_id)
     except Exception as e:
-        print(f"Could not delete photo {photo_to_delete.public_id} from Cloudinary: {e}")
+        SecureErrorHandler.log_error(e, f"Cloudinary photo deletion {photo_id}")
 
     db.delete(photo_to_delete)
     db.commit()
@@ -129,7 +130,7 @@ def delete_gallery_photo(
     try:
         cloudinary.uploader.destroy(photo.public_id)
     except Exception as e:
-        print(f"Could not delete photo {photo.public_id} from Cloudinary: {e}")
+        SecureErrorHandler.log_error(e, f"Cloudinary gallery photo deletion {photo_id}")
 
     db.delete(photo)
     db.commit()

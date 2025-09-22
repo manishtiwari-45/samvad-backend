@@ -4,6 +4,7 @@ import cloudinary
 import cloudinary.uploader
 from fastapi import HTTPException, status, UploadFile
 from app.core.config import CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+from app.core.secure_error_handler import SecureErrorHandler, SecureValidator
 
 # Configure Cloudinary
 cloudinary.config(
@@ -15,20 +16,25 @@ cloudinary.config(
 
 def upload_to_cloudinary(file: UploadFile, folder: str) -> dict:
     """
-    Uploads a file to a specified folder in Cloudinary.
+    Securely uploads a file to a specified folder in Cloudinary.
     Returns the upload result dictionary from Cloudinary.
     """
     try:
-        # The upload method returns a dictionary with upload details
+        # Validate file before upload
+        SecureValidator.validate_file_upload(file)
+        
+        # Upload with security restrictions
         upload_result = cloudinary.uploader.upload(
             file.file,
             folder=folder,
-            resource_type="image"
+            resource_type="image",
+            allowed_formats=["jpg", "jpeg", "png", "gif", "webp"],
+            max_file_size=SecureValidator.MAX_FILE_SIZE
         )
         return upload_result
+    except HTTPException:
+        # Re-raise validation errors
+        raise
     except Exception as e:
-        # Handle potential errors during upload
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload image to Cloudinary: {str(e)}"
-        )
+        # Handle upload errors securely
+        raise SecureErrorHandler.handle_external_service_error(e, "Image upload")

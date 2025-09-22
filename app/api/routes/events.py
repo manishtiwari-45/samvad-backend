@@ -6,10 +6,10 @@ import cloudinary
 import cloudinary.uploader
 
 from app.core.config import CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+from app.core.secure_error_handler import SecureErrorHandler, SecureValidator
 from app.db.database import get_session
-# Import UserRole to check for super_admin
 from app.db.models import Club, Event, User, EventRegistration, EventPhoto, UserRole
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_admin_or_super_admin
 from app.schemas import EventCreate, EventPublic, UserPublic
 from app.ai.recommendations import recommend_events_for_user
 
@@ -38,15 +38,33 @@ def upload_photo_for_event(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     
-    if event.club.admin_id != current_user.id:
+    # Allow club admin, coordinator, sub-coordinator, or super admin to upload photos
+    is_authorized = (
+        event.club.admin_id == current_user.id or
+        event.club.coordinator_id == current_user.id or
+        event.club.sub_coordinator_id == current_user.id or
+        current_user.role == UserRole.super_admin
+    )
+    
+    if not is_authorized:
         raise HTTPException(status_code=403, detail="Not authorized to upload photos for this event")
         
     try:
-        upload_result = cloudinary.uploader.upload(file.file, folder="campusconnect_events")
+        # Validate file before upload
+        SecureValidator.validate_file_upload(file)
+        upload_result = cloudinary.uploader.upload(
+            file.file, 
+            folder="campusconnect_events",
+            allowed_formats=["jpg", "jpeg", "png", "gif", "webp"],
+            max_file_size=SecureValidator.MAX_FILE_SIZE
+        )
         image_url = upload_result.get("secure_url")
         public_id = upload_result.get("public_id")
+    except HTTPException:
+        # Re-raise validation errors
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image upload failed: {e}")
+        raise SecureErrorHandler.handle_file_upload_error(e, "event photo upload")
 
     new_photo = EventPhoto(image_url=image_url, public_id=public_id, event_id=event_id)
     db.add(new_photo)
@@ -73,13 +91,24 @@ def delete_event_photo(
         raise HTTPException(status_code=404, detail="Photo not found")
 
     event = db.get(Event, photo_to_delete.event_id)
-    if not event or event.club.admin_id != current_user.id:
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Allow club admin, coordinator, sub-coordinator, or super admin to delete photos
+    is_authorized = (
+        event.club.admin_id == current_user.id or
+        event.club.coordinator_id == current_user.id or
+        event.club.sub_coordinator_id == current_user.id or
+        current_user.role == UserRole.super_admin
+    )
+    
+    if not is_authorized:
         raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
 
     try:
         cloudinary.uploader.destroy(photo_to_delete.public_id)
     except Exception as e:
-        print(f"Could not delete photo {photo_to_delete.public_id} from Cloudinary: {e}")
+        SecureErrorHandler.log_error(e, f"Cloudinary photo deletion for event {event_id}")
 
     db.delete(photo_to_delete)
     db.commit()
@@ -107,17 +136,19 @@ def create_event(
     if not club:
         raise HTTPException(status_code=404, detail="Club not found")
 
-    # --- MODIFIED AUTHORIZATION CHECK ---
-    # A user can create an event if they are the admin of that club OR if they are a super admin.
-    is_club_admin = (club.admin_id == current_user.id)
-    is_super_admin = (current_user.role == UserRole.super_admin)
+    # Allow club admin, coordinator, sub-coordinator, or super admin to create events
+    is_authorized = (
+        club.admin_id == current_user.id or
+        club.coordinator_id == current_user.id or
+        club.sub_coordinator_id == current_user.id or
+        current_user.role == UserRole.super_admin
+    )
 
-    if not (is_club_admin or is_super_admin):
+    if not is_authorized:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to create events for this club."
         )
-    # --- END OF MODIFICATION ---
 
     event = Event.model_validate(event_in, update={"club_id": club.id})
     db.add(event)

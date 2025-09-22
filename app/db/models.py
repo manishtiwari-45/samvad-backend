@@ -51,6 +51,14 @@ class User(SQLModel, table=True):
         sa_relationship_kwargs={'foreign_keys': '[Club.sub_coordinator_id]'}
     )
     uploaded_gallery_photos: List["GalleryPhoto"] = Relationship(back_populates="uploader")
+    role_requests: List["RoleRequest"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={'foreign_keys': '[RoleRequest.user_id]'}
+    )
+    reviewed_role_requests: List["RoleRequest"] = Relationship(
+        back_populates="reviewed_by",
+        sa_relationship_kwargs={'foreign_keys': '[RoleRequest.reviewed_by_id]'}
+    )
 
 
 class Club(SQLModel, table=True):
@@ -132,3 +140,28 @@ class GalleryPhoto(SQLModel, table=True):
     uploaded_by_id: int = Field(foreign_key="user.id")
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
     uploader: "User" = Relationship(back_populates="uploaded_gallery_photos")
+
+class RoleRequestStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+class RoleRequest(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    requested_role: UserRole = Field(index=True)
+    current_role: UserRole = Field(index=True)
+    reason: str = Field(max_length=1000)  # User's reason for requesting the role
+    status: RoleRequestStatus = Field(default=RoleRequestStatus.pending, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    reviewed_at: Optional[datetime] = Field(default=None)
+    reviewed_by_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    admin_notes: Optional[str] = Field(default=None, max_length=1000)  # Admin's notes on the decision
+    
+    # Relationships
+    user: "User" = Relationship(
+        sa_relationship_kwargs={'foreign_keys': '[RoleRequest.user_id]'}
+    )
+    reviewed_by: Optional["User"] = Relationship(
+        sa_relationship_kwargs={'foreign_keys': '[RoleRequest.reviewed_by_id]'}
+    )
