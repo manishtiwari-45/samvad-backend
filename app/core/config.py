@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database and JWT Config
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./samvad.db")
+# Use SQLite for now - will switch to PostgreSQL later
+DATABASE_URL = "sqlite:///./samvad.db"
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-super-secret-jwt-key-change-this-in-production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
