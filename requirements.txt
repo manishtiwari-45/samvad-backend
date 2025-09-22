@@ -121,7 +121,6 @@ python-louvain==0.16
 python-multipart==0.0.20
 pytz==2024.2
 pyvis==0.3.2
-pywin32==308
 PyYAML==6.0.2
 pyzmq==26.2.0
 qr==0.6.0
