@@ -1,8 +1,14 @@
 from sqlmodel import SQLModel, Session, create_engine
 from app.core.config import DATABASE_URL
+import os
 
-# The `connect_args` is needed only for SQLite
-engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+# Configure engine based on database type
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite configuration
+    engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+else:
+    # PostgreSQL configuration (for production)
+    engine = create_engine(DATABASE_URL, echo=True)
 
 def create_db_and_tables():
     # --- FIX ---
