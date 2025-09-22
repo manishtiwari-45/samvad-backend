@@ -94,20 +94,32 @@ def login_for_access_token(
 def google_login(request: GoogleLoginRequest, db: Annotated[Session, Depends(get_session)]):
     try:
         # Verify the Google token by calling Google's API
+        # Try both userinfo endpoints for better compatibility
         response = requests.get(
             f"https://www.googleapis.com/oauth2/v1/userinfo?access_token={request.token}"
         )
+        
+        # If first endpoint fails, try the v2 endpoint
         if response.status_code != 200:
+            response = requests.get(
+                f"https://www.googleapis.com/oauth2/v2/userinfo?access_token={request.token}"
+            )
+        
+        if response.status_code != 200:
+            print(f"Google API Error: {response.status_code} - {response.text}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid Google token"
             )
         
         google_user_data = response.json()
+        print(f"Google user data received: {google_user_data}")  # Debug logging
+        
         email = google_user_data.get("email")
         name = google_user_data.get("name")
         
         if not email:
+            print(f"No email found in Google response: {google_user_data}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Could not retrieve email from Google"
@@ -136,10 +148,17 @@ def google_login(request: GoogleLoginRequest, db: Annotated[Session, Depends(get
         access_token = create_access_token(data={"sub": user.email})
         return {"access_token": access_token, "token_type": "bearer"}
         
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print(f"Request exception during Google login: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify Google token"
+        )
+    except Exception as e:
+        print(f"Unexpected error during Google login: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed. Please check your credentials and try again."
         )
 
 @router.get("/me", response_model=UserPublicWithDetails)
